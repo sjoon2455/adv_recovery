@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 if __name__ == "__main__":
-    batch = 2
+    batch = 20
 
     class LeNet(nn.Module):
 
@@ -50,9 +50,9 @@ if __name__ == "__main__":
     attacks = [
         fa.FGSM(),
         fa.LinfPGD(),
-        # fa.LinfBasicIterativeAttack(),
-        # fa.LinfAdditiveUniformNoiseAttack(),
-        # fa.LinfDeepFoolAttack(),
+        fa.LinfBasicIterativeAttack(),
+        fa.LinfAdditiveUniformNoiseAttack(),
+        fa.LinfDeepFoolAttack(),
     ]
     epsilons = [
         # 0.0,
@@ -71,9 +71,12 @@ if __name__ == "__main__":
         # 1.0,
     ]
 
-    attacks_result = [[0]*len(attacks)]*len(attacks)
+    attacks_result = [[0 for _ in range(len(attacks))]
+                      for _ in range(len(attacks))]
+    total_recovered = 0
     for n, attack_1 in enumerate(attacks):
         for m, attack_2 in enumerate(attacks):
+            # which needs to be the same as label
             ori_predictions = fmodel(images).argmax(axis=-1)
 
             raw_advs, _, success = attack_1(
@@ -87,12 +90,22 @@ if __name__ == "__main__":
             double_adv_predictions = fmodel(
                 raw_double_advs).argmax(axis=-1)
 
-            recovered = 0
+            drop, recovered = 0, 0
+            ori_predictions = ori_predictions.raw.numpy()
+            adv_predictions = adv_predictions.raw.numpy()
+            double_adv_predictions = double_adv_predictions.raw.numpy()
+
             for i in range(batch):
+                # print(str(attack_1)[:8], str(attack_2)[:8], ori_predictions[i], adv_predictions[i],
+                #   double_adv_predictions[i])
                 if ori_predictions[i] == adv_predictions[i]:
-                    continue
+                    drop += 1
+                    continue  # attack failed at all
+
                 if ori_predictions[i] == double_adv_predictions[i]:
                     recovered += 1
-
             attacks_result[n][m] = recovered
+            total_recovered += recovered
     print("recovery matrix: ", attacks_result)
+    print(total_recovered, batch*len(attacks)**2)
+    print("recovery rate: ", total_recovered/(batch*len(attacks)**2-drop))
