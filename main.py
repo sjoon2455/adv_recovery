@@ -37,18 +37,6 @@ if __name__ == "__main__":
         def name(self):
             return "LeNet"
 
-    # with open('./imagenet1000_clsidx_to_labels.txt', 'r') as f:
-    #     contents = f.read()
-    #     dic = ast.literal_eval(contents)
-    #     f.close()
-    # imagenet
-    # model = models.resnet18(pretrained=True).eval()
-    # preprocessing = dict(mean=[0.485, 0.456, 0.406], std=[
-    #                      0.229, 0.224, 0.225], axis=-3)
-    # fmodel = PyTorchModel(model, bounds=(0, 1), preprocessing=preprocessing)
-
-    # mnist
-
     model = LeNet()
     model.load_state_dict(torch.load('LeNet'))
     model.eval()
@@ -60,7 +48,7 @@ if __name__ == "__main__":
     # print(f"clean accuracy:  {clean_acc * 100:.1f} %")
 
     attacks = [
-        # fa.FGSM(),
+        fa.FGSM(),
         fa.LinfPGD(),
         # fa.LinfBasicIterativeAttack(),
         # fa.LinfAdditiveUniformNoiseAttack(),
@@ -83,22 +71,28 @@ if __name__ == "__main__":
         # 1.0,
     ]
 
-    attacks_result = {}
-    for attack in attacks:
-        tmp = []
-        rows, cols = batch, 3
-        ori_images, adv_images, double_adv_images = [], [], []
-        ori_predictions = fmodel(images).argmax(axis=-1)
+    attacks_result = [[0]*len(attacks)]*len(attacks)
+    for n, attack_1 in enumerate(attacks):
+        for m, attack_2 in enumerate(attacks):
+            ori_predictions = fmodel(images).argmax(axis=-1)
 
-        raw_advs, _, success = attack(
-            fmodel, images, labels, epsilons=epsilons)
-        raw_advs = raw_advs[0]
-        adv_predictions = fmodel(raw_advs).argmax(axis=-1)
+            raw_advs, _, success = attack_1(
+                fmodel, images, labels, epsilons=epsilons)
+            raw_advs = raw_advs[0]
+            adv_predictions = fmodel(raw_advs).argmax(axis=-1)
 
-        raw_double_advs, _, success = attack(
-            fmodel, raw_advs, adv_predictions, epsilons=epsilons)
-        raw_double_advs = raw_double_advs[0]
-        double_adv_predictions = fmodel(
-            raw_double_advs).argmax(axis=-1)
+            raw_double_advs, _, success = attack_2(
+                fmodel, raw_advs, adv_predictions, epsilons=epsilons)
+            raw_double_advs = raw_double_advs[0]
+            double_adv_predictions = fmodel(
+                raw_double_advs).argmax(axis=-1)
 
-        attacks_result[attack] =
+            attack_fail_indices = [i for i, j in zip(
+                ori_predictions, adv_predictions) if i == j]
+            for ind in attack_fail_indices:
+                # drop out failed attack
+                del ori_predictions[ind], adv_predictions[ind], double_adv_predictions[ind]
+            recovered_values = [i for i, j in zip(
+                ori_predictions, double_adv_predictions) if i == j]
+            attacks_result[n][m] = len(recovered_values)
+    print("recovery matrix: ", attacks_result)

@@ -1,0 +1,7 @@
+numpy==1.19.3
+eagerpy
+torchvision
+torch
+foolbox
+matplotlib
+keras==2.2.5
