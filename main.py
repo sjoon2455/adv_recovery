@@ -87,12 +87,12 @@ if __name__ == "__main__":
             double_adv_predictions = fmodel(
                 raw_double_advs).argmax(axis=-1)
 
-            attack_fail_indices = [i for i, j in zip(
-                ori_predictions, adv_predictions) if i == j]
-            for ind in attack_fail_indices:
-                # drop out failed attack
-                del ori_predictions[ind], adv_predictions[ind], double_adv_predictions[ind]
-            recovered_values = [i for i, j in zip(
-                ori_predictions, double_adv_predictions) if i == j]
-            attacks_result[n][m] = len(recovered_values)
+            recovered = 0
+            for i in range(batch):
+                if ori_predictions[i] == adv_predictions[i]:
+                    continue
+                if ori_predictions[i] == double_adv_predictions[i]:
+                    recovered += 1
+
+            attacks_result[n][m] = recovered
     print("recovery matrix: ", attacks_result)
