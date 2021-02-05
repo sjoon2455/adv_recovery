@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def run(dataset, batch=20):
+def run(dataset, batch=20, epsilons=[0.1]):
     class LeNet(nn.Module):
         def __init__(self):
             super(LeNet, self).__init__()
@@ -46,7 +46,6 @@ def run(dataset, batch=20):
     # print(images[0], labels[0])
     # clean_acc = accuracy(fmodel, images, labels)
     # print(f"clean accuracy:  {clean_acc * 100:.1f} %")
-
     attacks = [
         fa.L2FastGradientAttack(),
         fa.L2DeepFoolAttack(),
@@ -62,22 +61,6 @@ def run(dataset, batch=20):
         # fa.BoundaryAttack(),  # reduce perturbation while staying adversarial
 
     ]
-    epsilons = [
-        # 0.0,
-        # 0.0005,
-        # 0.001,
-        # 0.0015,
-        # 0.002,
-        # 0.003,
-        # 0.005,
-        # 0.01,
-        # 0.02,
-        # 0.03,
-        0.1,
-        # 0.3,
-        # 0.5,
-        # 1.0,
-    ]
 
     attacks_result = [[0 for _ in range(len(attacks))]
                       for _ in range(len(attacks))]
@@ -89,8 +72,7 @@ def run(dataset, batch=20):
         for m, attack_2 in enumerate(attacks):
             # which needs to be the same as label
             ori_predictions = fmodel(images).argmax(axis=-1)
-
-            raw_advs, _, success = attack_1(
+            raw_advs, _, _ = attack_1(
                 fmodel, images, labels, epsilons=epsilons)
             raw_advs = raw_advs[0]
             adv_predictions = fmodel(raw_advs).argmax(axis=-1)
@@ -107,11 +89,7 @@ def run(dataset, batch=20):
             double_adv_predictions = double_adv_predictions.raw.numpy()
 
             for i in range(batch):
-                # if n == 3 or n == 4:
-                # print(str(attack_1)[:8], str(attack_2)[
-                #       :8], ori_predictions[i], adv_predictions[i], double_adv_predictions[i])
 
-                #  or ori_predictions[i] != labels[i]
                 if ori_predictions[i] == adv_predictions[i]:
                     attack_fail_drop += 1
                     continue  # attack failed at all
@@ -138,5 +116,23 @@ def run(dataset, batch=20):
 
 if __name__ == "__main__":
     datasets = ['mnist', 'imagenet', 'cifar10', 'cifar100']
+    epsilons = [
+        # 0.0,
+        # 0.0005,
+        # 0.001,
+        # 0.0015,
+        # 0.002,
+        # 0.003,
+        # 0.005,
+        0.01,
+        # 0.02,
+        # 0.03,
+        0.1,
+        # 0.3,
+        # 0.5,
+        0.8,
+        # 1.0,
+    ]
     for dataset in datasets:
-        run(dataset, 20)
+        for epsilon in epsilons:
+            run(dataset, 20, [epsilon])
