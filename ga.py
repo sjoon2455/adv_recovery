@@ -1,7 +1,8 @@
 import random
 
+
 class GA_searcher():
-    
+
     def __init__(self, num_in_generation, iteration, stop_criterion, mut_rate, cross_rate):
         self.generation = [Individual()]*num_in_generation
         self.fitness = [0]*num_in_generation
@@ -13,7 +14,7 @@ class GA_searcher():
 
     def get_generation(self):
         return self.generation
-    
+
     def get_fitness(self):
         return self.eval()
 
@@ -22,10 +23,11 @@ class GA_searcher():
         for individual in self.get_generation():
             ind_fitness = individual.eval_alone()
             res.append((individual, ind_fitness))
-            res = sorted(res, lambda x: x[1], reverse=True) # in descending order
+            # in descending order
+            res = sorted(res, lambda x: x[1], reverse=True)
         fittest_val, fittest = zip(*res[:top_n])
         return fittest_val, fittest
-    
+
     def is_stop_criterion(self, top_n, stop_criterion):
         fittest_val, fittest = self.eval(top_n)
         if fittest_val > stop_criterion:
@@ -35,26 +37,20 @@ class GA_searcher():
         random_ind = Operator().get_random()
         random * num_in_generation
 
-
-
     def evolve(self):
-        initial_population = 
+        initial_population =
         while self.is_stop_criterion(self.top_n, self.stop_criterion) or iteration < self.iteration
-    
-        
+
 
 class Individual():
     def __init__(self):
         self.fitness = 0.0
-        
+
     def eval_alone(self):
-        continue
 
 
 class Operator():
     def __init__(self, operator_where_how):
-        self.operators = {'incr': (-1, 1)}
-        self.where = 
+        self.
 
-    def get_random(self, amount = 1):
-        
+    def get_random(self, amount=1):
