@@ -8,14 +8,12 @@ import ast
 from keras import layers, models, datasets, backend
 import keras
 import foolbox
-import torch
+import torch as torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-def eval(individual):
-    # using SA
-    continue
+from collections import Counter
+import time
 
 
 def run(dataset, batch=20, epsilons=[0.1]):
@@ -47,84 +45,90 @@ def run(dataset, batch=20, epsilons=[0.1]):
 
     images, labels = ep.astensors(
         *samples(fmodel, dataset="mnist", batchsize=batch))
-    # print(type(images), type(labels))
-    # print(images[0], labels[0])
-    # clean_acc = accuracy(fmodel, images, labels)
-    # print(f"clean accuracy:  {clean_acc * 100:.1f} %")
+
     attacks = [
         fa.L2FastGradientAttack(),
         fa.L2DeepFoolAttack(),
-        fa.L2CarliniWagnerAttack(),
+        # fa.L2CarliniWagnerAttack(),
         fa.DDNAttack(),
 
-        # L_inf
         fa.LinfBasicIterativeAttack(),
         fa.LinfFastGradientAttack(),
         fa.LinfDeepFoolAttack(),
         fa.LinfPGD(),
-
-        # fa.BoundaryAttack(),  # reduce perturbation while staying adversarial
-
     ]
 
-    for n, attack_1 in enumerate(attacks):
-        print(n, str(attack_1)[:8])
+    for attack_1 in attacks:
         # which needs to be the same as label
         ori_predictions = fmodel(images).argmax(axis=-1)
         raw_advs, _, _ = attack_1(
             fmodel, images, labels, epsilons=epsilons)
+
+        # print(type(labels), labels)
         raw_advs = raw_advs[0]
         adv_predictions = fmodel(raw_advs).argmax(axis=-1)
-
         drop_list = []
         # only filter adversarial ones
         for i in range(batch):
-            if ori_predictions[i] != adv_predictions[i]:
+            if ori_predictions[i].raw.numpy() != adv_predictions[i].raw.numpy():
                 drop_list.append(i)
+        if batch == len(drop_list):
+            continue
+        # for each image
+        images_double_adv_predictions = []
+        images_double_advs = []
 
-    # filter out non-adversarial ones
-    meet_threshold = 0.0
-    while meet_threshold < 0.8:
-        # to be implemented
-        raw_double_advs, _, success = attack_2(
-            fmodel, raw_advs, adv_predictions, epsilons=epsilons)
-        raw_double_advs = raw_double_advs[0]
-        double_adv_predictions = fmodel(
-            raw_double_advs).argmax(axis=-1)
-
-        attack_fail_drop, predict_fail_drop, recovered = 0, 0, 0
-        ori_predictions = ori_predictions.raw.numpy()
-        adv_predictions = adv_predictions.raw.numpy()
-        double_adv_predictions = double_adv_predictions.raw.numpy()
-
+        # created adversarial image for each image with an attack
+        for attack_2 in attacks:
+            double_advs, _, _ = attack_2(
+                fmodel, raw_advs, adv_predictions, epsilons=epsilons)
+            double_advs = double_advs[0]
+            double_adv_predictions = fmodel(
+                double_advs).argmax(axis=-1)
+            images_double_adv_predictions.append(double_adv_predictions)
+            images_double_advs.append(double_advs)
+            # double_adv_predictions = double_adv_predictions.raw.numpy()
+        # for each image
         for i in range(batch):
-
-            if ori_predictions[i] == adv_predictions[i]:
-                attack_fail_drop += 1
-                continue  # attack failed at all
-            elif ori_predictions[i] != labels[i].raw.numpy():
-                predict_fail_drop += 1
+            if i in drop_list:
                 continue
-            else:
-                if ori_predictions[i] == double_adv_predictions[i]:
-                    recovered += 1
-        drop = attack_fail_drop + predict_fail_drop
+            adv_pred = adv_predictions[i].raw.numpy()
+            image_predictions = [a[i] for a in images_double_adv_predictions]
+            image_ = [a[i] for a in images_double_advs[i]]
+
+            for j in range(len(attacks)):
+                if image_predictions[j].raw.numpy() == adv_pred:
+                    image_predictions[j], image_[
+                        j] = attack_until(image_[j], adv_pred)
+        final_predictions = [Counter(a).most_common()[0][1]
+                             for a in image_predictions]
+        for i in range(batch):
+            if i in drop_list:
+                drop += 1
+                continue
+            if final_predictions[i] == ori_predictions[i]:
+                recovered += 1
+
         drop_result[n][m] = batch-drop
         attacks_result[n][m] = recovered
         total_drop += drop
         total_recovered += recovered
+    '''     
     print("-------------------------------------------------------")
-    print("Dataset: ", dataset)
+    print("Dataset(epsilon = {0}): ".format(epsilons[0]), dataset)
     print("recovery matrix: ", attacks_result)
     print(" total  matrix:  ", drop_result)
     print("  Drop report:   ", attack_fail_drop, predict_fail_drop)
     print("recovery rate: ", total_recovered /
           (batch*len(attacks)**2-total_drop))
     print("-------------------------------------------------------")
+    '''
 
 
 if __name__ == "__main__":
-    datasets = ['mnist', 'imagenet', 'cifar10', 'cifar100']
+    # datasets = ['mnist', 'imagenet', 'cifar10', 'cifar100']
+    datasets = ['cifar100']
+    batch = 5
     epsilons = [
         # 0.0,
         # 0.0005,
@@ -133,15 +137,21 @@ if __name__ == "__main__":
         # 0.002,
         # 0.003,
         # 0.005,
-        0.01,
+
+        # 0.01,
+
         # 0.02,
         # 0.03,
+
         0.1,
+
         # 0.3,
         # 0.5,
-        0.8,
+
+        # 0.8,
+
         # 1.0,
     ]
     for dataset in datasets:
         for epsilon in epsilons:
-            run(dataset, 20, [epsilon])
+            run(dataset, batch, [epsilon])

@@ -49,7 +49,7 @@ def run(dataset, batch=20, epsilons=[0.1]):
     attacks = [
         fa.L2FastGradientAttack(),
         fa.L2DeepFoolAttack(),
-        fa.L2CarliniWagnerAttack(),
+        # fa.L2CarliniWagnerAttack(),
         fa.DDNAttack(),
 
         # L_inf
