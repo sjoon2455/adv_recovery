@@ -11,6 +11,9 @@ import foolbox
 import torch as torch
 import torch.nn as nn
 import torch.nn.functional as F
+from keras.applications.resnet50 import ResNet50
+from keras.preprocessing import image
+from keras.applications.resnet50 import preprocess_input, decode_predictions
 
 from collections import Counter
 import time
@@ -61,14 +64,21 @@ def run(dataset, batch=20, epsilons=[0.1]):
 
         def name(self):
             return "LeNet"
+    if dataset == 'mnist':
+        model = LeNet()
+        model.load_state_dict(torch.load('LeNet'))
+        model.eval()
+    else:
 
-    model = LeNet()
-    model.load_state_dict(torch.load('LeNet'))
-    model.eval()
+        model = torch.hub.load('pytorch/vision:v0.6.0',
+                               'resnet50', pretrained=True)
+        model.eval()
+
     fmodel = PyTorchModel(model, bounds=(0, 1))
 
     images, labels = ep.astensors(
-        *samples(fmodel, dataset="mnist", batchsize=batch))
+        *samples(fmodel, dataset=dataset, batchsize=batch))
+
     attacks = [
         fa.L2FastGradientAttack(),
         fa.L2DeepFoolAttack(),
@@ -82,8 +92,9 @@ def run(dataset, batch=20, epsilons=[0.1]):
     ]
     attacks_result = [0 for _ in range(len(attacks))]
     drop_result = [0 for _ in range(len(attacks))]
-    recovered = 0
     for n, attack_1 in enumerate(attacks):
+        print(n, str(attack_1)[:8])
+        recovered = 0
         # which needs to be the same as label
         ori_predictions = fmodel(images).argmax(axis=-1)
         raw_advs, _, _ = attack_1(
@@ -155,8 +166,9 @@ def run(dataset, batch=20, epsilons=[0.1]):
 
 if __name__ == "__main__":
     # datasets = ['mnist', 'imagenet', 'cifar10', 'cifar100']
-    datasets = ['cifar100']
-    batch = 5
+    datasets = ['imagenet', 'cifar10', 'cifar100']
+    # datasets = ['mnist']
+    batch = 20
     epsilons = [
         # 0.0,
         # 0.0005,
@@ -166,7 +178,7 @@ if __name__ == "__main__":
         # 0.003,
         # 0.005,
 
-        # 0.01,
+        0.01,
 
         # 0.02,
         # 0.03,
@@ -176,7 +188,7 @@ if __name__ == "__main__":
         # 0.3,
         # 0.5,
 
-        # 0.8,
+        0.8,
 
         # 1.0,
     ]

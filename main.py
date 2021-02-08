@@ -35,11 +35,15 @@ def run(dataset, batch=20, epsilons=[0.1]):
         def name(self):
             return "LeNet"
 
-    model = LeNet()
-    model.load_state_dict(torch.load('LeNet'))
-    model.eval()
+    if dataset == 'mnist':
+        model = LeNet()
+        model.load_state_dict(torch.load('LeNet'))
+        model.eval()
+    else:
+        model = torch.hub.load('pytorch/vision:v0.6.0',
+                               'resnet50', pretrained=True)
+        model.eval()
     fmodel = PyTorchModel(model, bounds=(0, 1))
-
     images, labels = ep.astensors(
         *samples(fmodel, dataset="mnist", batchsize=batch))
     # print(type(images), type(labels))
@@ -117,7 +121,8 @@ def run(dataset, batch=20, epsilons=[0.1]):
 
 
 if __name__ == "__main__":
-    datasets = ['mnist', 'imagenet', 'cifar10', 'cifar100']
+    # datasets = ['mnist', 'imagenet', 'cifar10', 'cifar100']
+    datasets = ['imagenet', 'cifar10', 'cifar100']
     epsilons = [
         # 0.0,
         # 0.0005,
