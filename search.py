@@ -83,8 +83,7 @@ def run(dataset, batch=20, epsilons=[0.1]):
     ]
     attacks_result = [0 for _ in range(len(attacks))]
     drop_result = [0 for _ in range(len(attacks))]
-    total_attack_fail_drop, total_predict_fail_drop, total_drop, total_recovered = 0, 0, 0, 0
-
+    recovered = 0
     for n, attack_1 in enumerate(attacks):
         # which needs to be the same as label
         ori_predictions = fmodel(images).argmax(axis=-1)
@@ -92,7 +91,7 @@ def run(dataset, batch=20, epsilons=[0.1]):
             fmodel, images, labels, epsilons=epsilons)
         # print("\n\n")
         # print(type(images), images)
-        print(type(labels), labels)
+        # print(type(labels), labels)
         # print("\n\n")
         raw_advs = raw_advs[0]
         adv_predictions = fmodel(raw_advs).argmax(axis=-1)
@@ -106,7 +105,7 @@ def run(dataset, batch=20, epsilons=[0.1]):
         # for each image
         images_double_adv_predictions = []
         images_double_advs = []
-
+        final_predictions = []
         # created adversarial image for each image with an attack
         for attack_2 in attacks:
             double_advs, _, _ = attack_2(
@@ -116,7 +115,6 @@ def run(dataset, batch=20, epsilons=[0.1]):
             double_adv_predictions = fmodel(
                 double_advs).argmax(axis=-1)
             images_double_adv_predictions.append(double_adv_predictions)
-            # print(double_adv_predictions)
             images_double_advs.append(double_advs)
         # for each image
         for i in range(batch):
@@ -124,37 +122,34 @@ def run(dataset, batch=20, epsilons=[0.1]):
                 continue
             adv_pred = adv_predictions[i].raw.numpy()
             image_predictions = [a[i] for a in images_double_adv_predictions]
-            # print(image_predictions)
             image_ = [a[i] for a in images_double_advs]
 
             for j in range(len(attacks)):
                 # if recovery did not change the label yet
-                print(image_predictions)
                 if image_predictions[j].raw.numpy() == adv_pred:
                     image_predictions[j], image_[
                         j] = attack_until(fmodel, image_[j], image_predictions[j], attacks)
-                print(image_predictions)
-
-        final_predictions = [Counter(image_predictions).most_common()[0][1]
-                             for a in image_predictions]
+            image_predictions = [np.asscalar(
+                a.raw.numpy()) for a in image_predictions]
+            final_predictions.append(image_predictions)
+        final_predictions = [Counter(a).most_common()[0][0]
+                             for a in final_predictions]
         for i in range(batch):
             if i in drop_list:
                 continue
-            if final_predictions[i] == ori_predictions[i]:
+            print(final_predictions[i], np.asscalar(ori_predictions[i].raw.numpy(
+            )), final_predictions[i] == np.asscalar(ori_predictions[i].raw.numpy()))
+            if final_predictions[i] == np.asscalar(ori_predictions[i].raw.numpy()):
                 recovered += 1
 
         attacks_result[n] = recovered
         drop_result[n] = batch-len(drop_list)
-    '''
     print("-------------------------------------------------------")
     print("Dataset(epsilon = {0}): ".format(epsilons[0]), dataset)
     print("recovery matrix: ", attacks_result)
     print(" total  matrix:  ", drop_result)
-    print("  Drop report:   ", attack_fail_drop, predict_fail_drop)
-    print("recovery rate: ", total_recovered /
-          (batch*len(attacks)**2-total_drop))
+    print("recovery rate: ", sum(attacks_result)/sum(drop_result))
     print("-------------------------------------------------------")
-    '''
 
 
 if __name__ == "__main__":
