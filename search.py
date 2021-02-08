@@ -69,7 +69,6 @@ def run(dataset, batch=20, epsilons=[0.1]):
 
     images, labels = ep.astensors(
         *samples(fmodel, dataset="mnist", batchsize=batch))
-
     attacks = [
         fa.L2FastGradientAttack(),
         fa.L2DeepFoolAttack(),
@@ -98,7 +97,9 @@ def run(dataset, batch=20, epsilons=[0.1]):
         drop_list = []
         # only filter adversarial ones
         for i in range(batch):
-            if ori_predictions[i].raw.numpy() != adv_predictions[i].raw.numpy():
+            # print(ori_predictions[i].raw.numpy(), adv_predictions[i].raw.numpy(
+            # ), ori_predictions[i].raw.numpy() == adv_predictions[i].raw.numpy())
+            if ori_predictions[i].raw.numpy() == adv_predictions[i].raw.numpy():
                 drop_list.append(i)
         if batch == len(drop_list):
             continue
@@ -119,11 +120,11 @@ def run(dataset, batch=20, epsilons=[0.1]):
         # for each image
         for i in range(batch):
             if i in drop_list:
+                final_predictions.append([10000])
                 continue
             adv_pred = adv_predictions[i].raw.numpy()
             image_predictions = [a[i] for a in images_double_adv_predictions]
             image_ = [a[i] for a in images_double_advs]
-
             for j in range(len(attacks)):
                 # if recovery did not change the label yet
                 if image_predictions[j].raw.numpy() == adv_pred:
@@ -137,8 +138,8 @@ def run(dataset, batch=20, epsilons=[0.1]):
         for i in range(batch):
             if i in drop_list:
                 continue
-            print(final_predictions[i], np.asscalar(ori_predictions[i].raw.numpy(
-            )), final_predictions[i] == np.asscalar(ori_predictions[i].raw.numpy()))
+            # print(final_predictions[i], np.asscalar(ori_predictions[i].raw.numpy(
+            # )), final_predictions[i] == np.asscalar(ori_predictions[i].raw.numpy()))
             if final_predictions[i] == np.asscalar(ori_predictions[i].raw.numpy()):
                 recovered += 1
 
