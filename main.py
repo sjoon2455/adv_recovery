@@ -66,7 +66,7 @@ def run(dataset, batch=20, epsilons=[0.1]):
                       for _ in range(len(attacks))]
     drop_result = [[0 for _ in range(len(attacks))]
                    for _ in range(len(attacks))]
-    total_drop, total_recovered = 0, 0
+    total_attack_fail_drop, total_predict_fail_drop, total_drop, total_recovered = 0, 0, 0, 0
     for n, attack_1 in enumerate(attacks):
         print(n, str(attack_1)[:8])
         for m, attack_2 in enumerate(attacks):
@@ -92,9 +92,11 @@ def run(dataset, batch=20, epsilons=[0.1]):
 
                 if ori_predictions[i] == adv_predictions[i]:
                     attack_fail_drop += 1
+                    total_attack_fail_drop += 1
                     continue  # attack failed at all
                 elif ori_predictions[i] != labels[i].raw.numpy():
                     predict_fail_drop += 1
+                    total_predict_fail_drop += 1
                     continue
                 else:
                     if ori_predictions[i] == double_adv_predictions[i]:
@@ -108,7 +110,7 @@ def run(dataset, batch=20, epsilons=[0.1]):
     print("Dataset: ", dataset)
     print("recovery matrix: ", attacks_result)
     print(" total  matrix:  ", drop_result)
-    print("  Drop report:   ", attack_fail_drop, predict_fail_drop)
+    print("  Drop report:   ", total_attack_fail_drop, total_predict_fail_drop)
     print("recovery rate: ", total_recovered /
           (batch*len(attacks)**2-total_drop))
     print("-------------------------------------------------------")

@@ -14,6 +14,35 @@ import torch.nn.functional as F
 
 from collections import Counter
 import time
+from random import sample
+
+image_predictions[j], image_[
+    j] = attack_until(image_[j], adv_pred)
+
+
+def attack_until(fmodel, image, label):
+    pred = label
+    attacks = [
+        fa.L2FastGradientAttack(),
+        fa.L2DeepFoolAttack(),
+        # fa.L2CarliniWagnerAttack(),
+        fa.DDNAttack(),
+
+        # L_inf
+        fa.LinfBasicIterativeAttack(),
+        fa.LinfFastGradientAttack(),
+        fa.LinfDeepFoolAttack(),
+        fa.LinfPGD(),
+    ]
+    while pred == label:
+        attack_1 = sample(attacks, 1)
+        raw_advs, _, _ = attack_1(
+            fmodel, image, label, epsilons=epsilons)
+        image = raw_advs[0]
+        ori_predictions = fmodel(image).argmax(axis=-1)
+        ori_predictions = ori_predictions.raw.numpy()
+        pred = ori_predictions[0]
+    return pred, image
 
 
 def run(dataset, batch=20, epsilons=[0.1]):
@@ -57,8 +86,13 @@ def run(dataset, batch=20, epsilons=[0.1]):
         fa.LinfDeepFoolAttack(),
         fa.LinfPGD(),
     ]
+    attacks_result = [[0 for _ in range(len(attacks))]
+                      for _ in range(len(attacks))]
+    drop_result = [[0 for _ in range(len(attacks))]
+                   for _ in range(len(attacks))]
+    total_attack_fail_drop, total_predict_fail_drop, total_drop, total_recovered = 0, 0, 0, 0
 
-    for attack_1 in attacks:
+    for n, attack_1 in enumerate(attacks):
         # which needs to be the same as label
         ori_predictions = fmodel(images).argmax(axis=-1)
         raw_advs, _, _ = attack_1(
@@ -99,7 +133,8 @@ def run(dataset, batch=20, epsilons=[0.1]):
             for j in range(len(attacks)):
                 if image_predictions[j].raw.numpy() == adv_pred:
                     image_predictions[j], image_[
-                        j] = attack_until(image_[j], adv_pred)
+                        j] = attack_until(fmodel, image_[j], adv_pred)
+
         final_predictions = [Counter(a).most_common()[0][1]
                              for a in image_predictions]
         for i in range(batch):
