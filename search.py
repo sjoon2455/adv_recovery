@@ -90,7 +90,20 @@ def run(dataset, batch=20, epsilons=[0.1]):
         fa.LinfDeepFoolAttack(),
         fa.LinfPGD(),
     ]
+    attacks_2 = [
+        fa.L2FastGradientAttack(),
+        fa.L2DeepFoolAttack(),
+        # fa.L2CarliniWagnerAttack(),
+        fa.DDNAttack(),
 
+        fa.LinfBasicIterativeAttack(),
+        fa.LinfFastGradientAttack(),
+        fa.LinfDeepFoolAttack(),
+        fa.LinfPGD(),
+    ]
+
+
+'''
     attacks_2 = [
         # L1
         fa.EADAttack(),
@@ -101,13 +114,13 @@ def run(dataset, batch=20, epsilons=[0.1]):
         fa.L2ProjectedGradientDescentAttack(),
         fa.L2AdditiveGaussianNoiseAttack(),
         fa.L2AdditiveUniformNoiseAttack(),
-        fa.L2ClippingAwareAdditiveGaussianNoiseAttack(),
-        fa.L2ClippingAwareAdditiveUniformNoiseAttack(),
+        # fa.L2ClippingAwareAdditiveGaussianNoiseAttack(),
+        # fa.L2ClippingAwareAdditiveUniformNoiseAttack(),
         fa.L2FastGradientAttack(),
         fa.L2RepeatedAdditiveGaussianNoiseAttack(),
         fa.L2RepeatedAdditiveUniformNoiseAttack(),
-        fa.L2ClippingAwareRepeatedAdditiveGaussianNoiseAttack(),
-        fa.L2ClippingAwareRepeatedAdditiveUniformNoiseAttack(),
+        # fa.L2ClippingAwareRepeatedAdditiveGaussianNoiseAttack(),
+        # fa.L2ClippingAwareRepeatedAdditiveUniformNoiseAttack(),
         fa.L2DeepFoolAttack(),
         fa.L2BrendelBethgeAttack(),
         fa.L2PGD(),
@@ -136,8 +149,10 @@ def run(dataset, batch=20, epsilons=[0.1]):
         fa.L0BrendelBethgeAttack(),
         fa.NewtonFoolAttack(),
     ]
+    '''
+
     attacks_result_total, labels_total, attacks_result, drop_result = [0 for _ in range(len(attacks_1))], [
-        0 for _ in range(len(attacks_1))], [0 for _ in range(len(attacks_1))], [0 for _ in range(len(attacks_1))]
+       0 for _ in range(len(attacks_1))], [0 for _ in range(len(attacks_1))], [0 for _ in range(len(attacks_1))]
 
     for n, attack_1 in enumerate(attacks_1):
         print(n, str(attack_1)[:8])
@@ -223,7 +238,7 @@ def run(dataset, batch=20, epsilons=[0.1]):
     print(" total  matrix:  ", drop_result)
     print("recovery rate: ", sum(attacks_result)/sum(drop_result))
     print("    labels: ", labels_total)
-    print("final_predictions: ", final_predictions_)
+    print("attacks_result_total: ", attacks_result_total)
     print("-------------------------------------------------------")
 
 
