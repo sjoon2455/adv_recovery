@@ -79,7 +79,7 @@ def run(dataset, batch=20, epsilons=[0.1]):
     images, labels = ep.astensors(
         *samples(fmodel, dataset=dataset, batchsize=batch))
 
-    attacks = [
+    attacks_1 = [
         fa.L2FastGradientAttack(),
         fa.L2DeepFoolAttack(),
         # fa.L2CarliniWagnerAttack(),
@@ -90,9 +90,56 @@ def run(dataset, batch=20, epsilons=[0.1]):
         fa.LinfDeepFoolAttack(),
         fa.LinfPGD(),
     ]
-    attacks_result = [0 for _ in range(len(attacks))]
-    drop_result = [0 for _ in range(len(attacks))]
-    for n, attack_1 in enumerate(attacks):
+
+    attacks_2 = [
+        # L1
+        fa.EADAttack(),
+        fa.L1BrendelBethgeAttack(),
+
+        # L_2
+        fa.L2ContrastReductionAttack(),
+        fa.L2ProjectedGradientDescentAttack(),
+        fa.L2AdditiveGaussianNoiseAttack(),
+        fa.L2AdditiveUniformNoiseAttack(),
+        fa.L2ClippingAwareAdditiveGaussianNoiseAttack(),
+        fa.L2ClippingAwareAdditiveUniformNoiseAttack(),
+        fa.L2FastGradientAttack(),
+        fa.L2RepeatedAdditiveGaussianNoiseAttack(),
+        fa.L2RepeatedAdditiveUniformNoiseAttack(),
+        fa.L2ClippingAwareRepeatedAdditiveGaussianNoiseAttack(),
+        fa.L2ClippingAwareRepeatedAdditiveUniformNoiseAttack(),
+        fa.L2DeepFoolAttack(),
+        fa.L2BrendelBethgeAttack(),
+        fa.L2PGD(),
+        fa.L2CarliniWagnerAttack(),
+        fa.DDNAttack(),
+
+        # L_inf
+        fa.LinfProjectedGradientDescentAttack(),
+        fa.LinfBasicIterativeAttack(),
+        fa.LinfFastGradientAttack(),
+        fa.LinfAdditiveUniformNoiseAttack(),
+        fa.LinfRepeatedAdditiveUniformNoiseAttack(),
+        fa.LinfDeepFoolAttack(),
+        fa.LinfinityBrendelBethgeAttack(),
+        fa.LinfPGD(),
+
+        fa.InversionAttack(),  # invert pixel
+        fa.BinarySearchContrastReductionAttack(),
+        fa.LinearSearchContrastReductionAttack(),
+        fa.GaussianBlurAttack(),
+        fa.SaltAndPepperNoiseAttack(),  # until misclassified
+        fa.LinearSearchBlendedUniformNoiseAttack(),
+        fa.BoundaryAttack(),  # reduce perturbation while staying adversarial
+
+        # gradient
+        fa.L0BrendelBethgeAttack(),
+        fa.NewtonFoolAttack(),
+    ]
+    attacks_result_total, labels_total, attacks_result, drop_result = [0 for _ in range(len(attacks_1))], [
+        0 for _ in range(len(attacks_1))], [0 for _ in range(len(attacks_1))], [0 for _ in range(len(attacks_1))]
+
+    for n, attack_1 in enumerate(attacks_1):
         print(n, str(attack_1)[:8])
         recovered = 0
         # which needs to be the same as label
@@ -108,8 +155,6 @@ def run(dataset, batch=20, epsilons=[0.1]):
         drop_list = []
         # only filter adversarial ones
         for i in range(batch):
-            # print(ori_predictions[i].raw.numpy(), adv_predictions[i].raw.numpy(
-            # ), ori_predictions[i].raw.numpy() == adv_predictions[i].raw.numpy())
             if ori_predictions[i].raw.numpy() == adv_predictions[i].raw.numpy():
                 drop_list.append(i)
         if batch == len(drop_list):
@@ -119,14 +164,16 @@ def run(dataset, batch=20, epsilons=[0.1]):
         images_double_advs = []
         final_predictions = []
         # created adversarial image for each image with an attack
-        for attack_2 in attacks:
+        for attack_2 in attacks_2:
             double_advs, _, _ = attack_2(
                 fmodel, raw_advs, adv_predictions, epsilons=epsilons)
             double_advs = double_advs[0]
 
             double_adv_predictions = fmodel(
                 double_advs).argmax(axis=-1)
-            images_double_adv_predictions.append(double_adv_predictions)
+            double_adv_predictions_ = fmodel(double_advs)
+            images_double_adv_predictions.append(
+                (double_adv_predictions, double_adv_predictions_))
             images_double_advs.append(double_advs)
         # for each image
         for i in range(batch):
@@ -134,16 +181,30 @@ def run(dataset, batch=20, epsilons=[0.1]):
                 final_predictions.append([10000])
                 continue
             adv_pred = adv_predictions[i].raw.numpy()
-            image_predictions = [a[i] for a in images_double_adv_predictions]
+            image_predictions = [a[0][i]
+                                 for a in images_double_adv_predictions]
+            image_predictions_rest = [a[1][i]
+                                      for a in images_double_adv_predictions]
             image_ = [a[i] for a in images_double_advs]
-            for j in range(len(attacks)):
+            for j in range(len(attacks_2)):
                 # if recovery did not change the label yet
                 if image_predictions[j].raw.numpy() == adv_pred:
                     image_predictions[j], image_[
-                        j] = attack_until(fmodel, image_[j], image_predictions[j], attacks)
+                        j] = attack_until(fmodel, image_[j], image_predictions[j], attacks_2)
             image_predictions = [np.asscalar(
                 a.raw.numpy()) for a in image_predictions]
-            final_predictions.append(image_predictions)
+            final_predictions.append(
+                (image_predictions, image_predictions_rest))
+
+        for j in range(batch):
+            if j in droplist:
+                continue
+            labels_.append(labels[j])
+            final_predictions_.append(final_predictions[j])
+
+        labels_total[n] = labels_
+        attacks_result_total[n] = final_predictions_
+
         final_predictions = [Counter(a).most_common()[0][0]
                              for a in final_predictions]
         for i in range(batch):
@@ -161,13 +222,14 @@ def run(dataset, batch=20, epsilons=[0.1]):
     print("recovery matrix: ", attacks_result)
     print(" total  matrix:  ", drop_result)
     print("recovery rate: ", sum(attacks_result)/sum(drop_result))
+    print("    labels: ", labels_total)
+    print("final_predictions: ", final_predictions_)
     print("-------------------------------------------------------")
 
 
 if __name__ == "__main__":
-    # datasets = ['mnist', 'imagenet', 'cifar10', 'cifar100']
-    datasets = ['imagenet', 'cifar10', 'cifar100']
-    # datasets = ['mnist']
+    # datasets = ['imagenet', 'cifar10', 'cifar100']
+    datasets = ['mnist']
     batch = 20
     epsilons = [
         # 0.0,
@@ -178,7 +240,7 @@ if __name__ == "__main__":
         # 0.003,
         # 0.005,
 
-        0.01,
+        # 0.01,
 
         # 0.02,
         # 0.03,
